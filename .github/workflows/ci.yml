@@ -44,7 +44,7 @@ jobs:
           test ! -e "dist/TimbreCanvas.app/Contents/Resources/RuntimeHost/timbrecanvas_runtime/__pycache__"
 
   dependency-review:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && github.event.repository.private == false
     runs-on: ubuntu-latest
     permissions:
       contents: read
