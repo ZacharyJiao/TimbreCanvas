@@ -30,9 +30,9 @@ final class GenerationPresetStore: ObservableObject {
         presets = (try? Self.load(at: manifestURL)) ?? []
     }
 
-    static func live(projectRoot: URL) -> GenerationPresetStore {
+    static func live(installation: RuntimeInstallation) -> GenerationPresetStore {
         GenerationPresetStore(
-            manifestURL: projectRoot.appending(path: "runtime/presets/presets.json")
+            manifestURL: installation.presetRoot.appending(path: "presets.json")
         )
     }
 

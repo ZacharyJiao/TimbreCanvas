@@ -14,14 +14,14 @@ final class AppModel: ObservableObject {
     @Published private(set) var progress = 0.0
     @Published private(set) var progressStage = ""
 
-    let projectRoot: URL
+    let installation: RuntimeInstallation
     private let client: WorkerClient
     private var voiceContinuations: [String: CheckedContinuation<URL, any Error>] = [:]
     private var generationContinuations: [String: CheckedContinuation<URL, any Error>] = [:]
 
-    init(projectRoot: URL = RuntimePaths.projectRoot()) {
-        self.projectRoot = projectRoot
-        client = WorkerClient(projectRoot: projectRoot)
+    init(installation: RuntimeInstallation = (try? RuntimeInstallation.resolve()) ?? .defaults()) {
+        self.installation = installation
+        client = WorkerClient(installation: installation)
         client.onMessage = { [weak self] message in self?.receive(message) }
         client.onUnexpectedExit = { [weak self] _ in self?.recoverIfPossible() }
     }
@@ -44,7 +44,7 @@ final class AppModel: ObservableObject {
                 payload: [
                     "engineID": .string("indextts2"),
                     "modelPath": .string(
-                        projectRoot.appending(path: "runtime/models/IndexTTS-2-MLX-8bit").path
+                        installation.modelURL.path
                     ),
                     "memoryLimitGB": .number(24),
                 ]

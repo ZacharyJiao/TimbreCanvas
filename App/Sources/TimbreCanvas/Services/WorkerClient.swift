@@ -1,6 +1,13 @@
 import Combine
 import Foundation
 
+struct WorkerProcessConfiguration: Equatable, Sendable {
+    let executableURL: URL
+    let arguments: [String]
+    let currentDirectoryURL: URL
+    let environment: [String: String]
+}
+
 @MainActor
 final class WorkerClient: ObservableObject {
     enum ClientError: LocalizedError {
@@ -23,33 +30,33 @@ final class WorkerClient: ObservableObject {
     var onMessage: ((WorkerMessage) -> Void)?
     var onUnexpectedExit: ((Int32) -> Void)?
 
-    let projectRoot: URL
+    let installation: RuntimeInstallation
     private var process: Process?
     private var inputHandle: FileHandle?
     private var outputBuffer = JSONLineBuffer()
 
-    init(projectRoot: URL) {
-        self.projectRoot = projectRoot.standardizedFileURL
+    init(installation: RuntimeInstallation) {
+        self.installation = installation
     }
 
     func start() throws {
         guard process == nil else { throw ClientError.alreadyRunning }
-        let python = projectRoot.appending(path: ".venv/bin/python")
-        guard FileManager.default.isExecutableFile(atPath: python.path) else {
-            throw ClientError.pythonMissing(python)
+        let configuration = Self.launchConfiguration(for: installation)
+        guard FileManager.default.isExecutableFile(atPath: configuration.executableURL.path) else {
+            throw ClientError.pythonMissing(configuration.executableURL)
         }
 
         let inputPipe = Pipe()
         let outputPipe = Pipe()
         let errorPipe = Pipe()
         let child = Process()
-        child.executableURL = python
-        child.arguments = ["-m", "runtime.worker.main"]
-        child.currentDirectoryURL = projectRoot
+        child.executableURL = configuration.executableURL
+        child.arguments = configuration.arguments
+        child.currentDirectoryURL = configuration.currentDirectoryURL
         child.standardInput = inputPipe
         child.standardOutput = outputPipe
         child.standardError = errorPipe
-        child.environment = workerEnvironment()
+        child.environment = configuration.environment
 
         outputPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
@@ -117,17 +124,30 @@ final class WorkerClient: ObservableObject {
         }
     }
 
-    private func workerEnvironment() -> [String: String] {
-        var environment = ProcessInfo.processInfo.environment
-        let huggingFace = projectRoot.appending(path: "runtime/cache/huggingface")
-        environment["INDEXTTS_PROJECT_ROOT"] = projectRoot.path
+    static func launchConfiguration(
+        for installation: RuntimeInstallation,
+        baseEnvironment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> WorkerProcessConfiguration {
+        var environment = baseEnvironment
+        let huggingFace = installation.cacheRoot.appending(path: "huggingface")
+        let existingPythonPath = environment["PYTHONPATH"]
+        environment["PYTHONPATH"] = [installation.workerModuleRoot.path, existingPythonPath]
+            .compactMap { $0 }
+            .filter { !$0.isEmpty }
+            .joined(separator: ":")
+        environment["TIMBRECANVAS_SUPPORT_ROOT"] = installation.supportRoot.path
+        environment["TIMBRECANVAS_MODEL_PATH"] = installation.modelURL.path
         environment["HF_HOME"] = huggingFace.path
         environment["HF_HUB_CACHE"] = huggingFace.appending(path: "hub").path
         environment["TRANSFORMERS_CACHE"] = huggingFace.appending(path: "transformers").path
         environment["HF_HUB_OFFLINE"] = "1"
         environment["HF_HUB_DISABLE_XET"] = "1"
         environment["UV_CONCURRENT_DOWNLOADS"] = "1"
-        return environment
+        return WorkerProcessConfiguration(
+            executableURL: installation.pythonURL,
+            arguments: ["-m", "timbrecanvas_runtime.main"],
+            currentDirectoryURL: installation.supportRoot,
+            environment: environment
+        )
     }
 }
-

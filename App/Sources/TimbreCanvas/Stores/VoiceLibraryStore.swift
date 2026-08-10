@@ -40,8 +40,8 @@ final class VoiceLibraryStore: ObservableObject {
         selectedID = profiles.first?.id
     }
 
-    static func live(projectRoot: URL) -> VoiceLibraryStore {
-        let voices = projectRoot.appending(path: "runtime/voices", directoryHint: .isDirectory)
+    static func live(installation: RuntimeInstallation) -> VoiceLibraryStore {
+        let voices = installation.voiceRoot
         let manifest = voices.appending(path: "voices.json")
         let custom = voices.appending(path: "custom", directoryHint: .isDirectory)
         try? FileManager.default.createDirectory(at: custom, withIntermediateDirectories: true)
@@ -50,7 +50,7 @@ final class VoiceLibraryStore: ObservableObject {
         let aliases = Dictionary(
             uniqueKeysWithValues: restored.filter { $0.kind == .builtIn }.map { ($0.id, $0.name) }
         )
-        let builtIns = builtInProfiles(projectRoot: projectRoot).map { profile in
+        let builtIns = builtInProfiles(voiceRoot: voices).map { profile in
             var profile = profile
             profile.name = aliases[profile.id] ?? profile.name
             return profile
@@ -136,8 +136,8 @@ final class VoiceLibraryStore: ObservableObject {
         try? FileManager.default.removeItem(at: url)
     }
 
-    private static func builtInProfiles(projectRoot: URL) -> [VoiceProfile] {
-        let voiceDirectory = projectRoot.appending(path: "runtime/voices/builtin")
+    private static func builtInProfiles(voiceRoot: URL) -> [VoiceProfile] {
+        let voiceDirectory = voiceRoot.appending(path: "builtin")
         let identifiers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12]
         return identifiers.map { number in
             let suffix = String(format: "%02d", number)
@@ -156,4 +156,3 @@ final class VoiceLibraryStore: ObservableObject {
         }
     }
 }
-

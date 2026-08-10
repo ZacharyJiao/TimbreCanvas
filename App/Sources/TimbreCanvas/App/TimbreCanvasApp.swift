@@ -4,13 +4,20 @@ import SwiftUI
 @main
 struct TimbreCanvasApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-    @StateObject private var appModel = AppModel()
-    @StateObject private var voiceLibrary = VoiceLibraryStore.live(
-        projectRoot: RuntimePaths.projectRoot()
-    )
-    @StateObject private var presets = GenerationPresetStore.live(
-        projectRoot: RuntimePaths.projectRoot()
-    )
+    @StateObject private var appModel: AppModel
+    @StateObject private var voiceLibrary: VoiceLibraryStore
+    @StateObject private var presets: GenerationPresetStore
+
+    init() {
+        let installation = (try? RuntimeInstallation.resolve()) ?? .defaults()
+        _appModel = StateObject(wrappedValue: AppModel(installation: installation))
+        _voiceLibrary = StateObject(
+            wrappedValue: VoiceLibraryStore.live(installation: installation)
+        )
+        _presets = StateObject(
+            wrappedValue: GenerationPresetStore.live(installation: installation)
+        )
+    }
 
     var body: some Scene {
         WindowGroup {
