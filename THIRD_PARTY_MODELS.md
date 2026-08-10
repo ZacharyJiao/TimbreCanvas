@@ -19,6 +19,8 @@ Important consequences:
 - IndexTTS 2 has its own restrictions, attribution duties and separate-license thresholds. Read the full English and Chinese license files before use.
 - Voice samples, cloned voices and generated outputs may carry additional rights and legal obligations. Users are responsible for consent and lawful use.
 
-Exact revisions and SHA-256 values are recorded in [`Installer/runtime-assets.json`](Installer/runtime-assets.json). License files downloaded with the models remain in the local download/cache directories.
+Exact revisions and SHA-256 values are recorded in [`Installer/runtime-assets.json`](Installer/runtime-assets.json). Pinned IndexTTS 2 and BigVGAN license snapshots are kept under [`Installer/Licenses`](Installer/Licenses), verified before installation, and copied into the converted model's `Licenses` directory. Other publisher files remain in their pinned local download/cache snapshots.
+
+Run `./script/setup.sh --show-model-licenses` to review the fixed license locations and key obligations without installing or changing files.
 
 This summary is informational and is not legal advice.
