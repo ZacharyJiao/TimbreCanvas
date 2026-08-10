@@ -10,12 +10,9 @@ Please use GitHub's private vulnerability reporting / Security Advisory feature 
 
 ## Dependency status
 
-The installer applies a small pinned security overlay after synchronizing the upstream MLX runtime. As of 2026-08-10, a local `pip-audit` scan was reduced from 41 findings in 11 packages to two findings in PyTorch 2.10:
+The installer applies a small pinned security overlay after synchronizing the upstream MLX runtime. As of 2026-08-11, the overlay uses PyTorch 2.13.0 with TorchAudio 2.11.0. TorchAudio 2.11 uses PyTorch's stable ABI and supports PyTorch 2.11 and later releases.
 
-- `PYSEC-2026-139`: no fixed version is published.
-- `PYSEC-2025-194`: the published fix requires PyTorch 2.13, while a matching compatible torchaudio build is not currently available to this runtime.
-
-These findings are not silently marked as fixed. Upgrading PyTorch alone would create an unsupported binary pair and can break inference. Track them as accepted upstream risk until a compatible torch/torchaudio pair is available, then remove the exception and re-run end-to-end inference verification.
+The pair was verified on Apple Silicon by importing both packages, exercising TorchAudio resampling, loading the pinned IndexTTS 2 MLX runtime, and generating finite, non-silent 22.05 kHz audio. A `pip-audit` scan of the resulting overlay reported no known vulnerabilities. Re-run the dependency scan and end-to-end inference gate whenever either package changes.
 
 ## Release boundary
 

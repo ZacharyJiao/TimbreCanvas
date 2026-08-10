@@ -70,9 +70,6 @@ class WorkerRuntime:
                 **dict(engine.generate(payload, progress)),
             )
             return result, False
-        if command.name == "cancel":
-            self._require_engine().cancel()
-            return encode_result(command.request_id, cancelled=True), False
         if command.name == "shutdown":
             if self.engine is not None:
                 self.engine.shutdown()

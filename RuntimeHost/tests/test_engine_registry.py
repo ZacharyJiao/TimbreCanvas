@@ -4,6 +4,8 @@ import pytest
 
 from timbrecanvas_runtime.engine import EngineCapabilities, EngineRegistry, TTSEngine
 from timbrecanvas_runtime.indextts2_engine import build_default_registry
+from timbrecanvas_runtime.main import WorkerRuntime
+from timbrecanvas_runtime.protocol import Command, ProtocolError
 
 
 @dataclass
@@ -22,9 +24,6 @@ class FakeEngine(TTSEngine):
 
     def generate(self, request, progress):
         return {"outputPath": request["outputPath"]}
-
-    def cancel(self):
-        return None
 
     def shutdown(self):
         return None
@@ -50,3 +49,13 @@ def test_registry_rejects_duplicate_engine_ids():
 
     with pytest.raises(ValueError, match="already registered"):
         registry.register("indextts2", FakeEngine)
+
+
+def test_worker_never_claims_in_process_cancellation_for_blocking_inference():
+    registry = build_default_registry(FakeEngine)
+    runtime = WorkerRuntime(registry)
+    runtime.engine = registry.create("indextts2")
+
+    with pytest.raises(ProtocolError) as error:
+        runtime.dispatch(Command("cancel", "cancel-1", {}), output=None)
+    assert error.value.code == "unknown_command"

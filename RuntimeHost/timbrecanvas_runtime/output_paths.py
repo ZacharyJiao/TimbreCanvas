@@ -11,6 +11,9 @@ from contextlib import contextmanager
 from pathlib import Path
 
 _INVALID_FILENAME = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+_PARTIAL_TOKEN = re.compile(
+    r"\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\Z"
+)
 
 
 def sanitize_filename(filename: str, fallback: str = "未命名.wav") -> str:
@@ -39,9 +42,16 @@ def allocate_output(directory: str | Path, requested_name: str) -> Path:
 
 
 @contextmanager
-def temporary_output(destination: str | Path) -> Iterator[Path]:
+def temporary_output(
+    destination: str | Path,
+    *,
+    partial_token: str | None = None,
+) -> Iterator[Path]:
     final_path = Path(destination).expanduser().resolve()
-    partial = final_path.parent / f".{final_path.stem}.{uuid.uuid4().hex}.partial.wav"
+    token = partial_token or str(uuid.uuid4())
+    if not _PARTIAL_TOKEN.fullmatch(token):
+        raise ValueError("invalid partial output token")
+    partial = final_path.parent / f".timbrecanvas.{token}.partial.wav"
     try:
         yield partial
     finally:

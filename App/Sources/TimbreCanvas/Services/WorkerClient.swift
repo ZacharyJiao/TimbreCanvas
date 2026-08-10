@@ -8,8 +8,61 @@ struct WorkerProcessConfiguration: Equatable, Sendable {
     let environment: [String: String]
 }
 
+enum WorkerProcessExit: Equatable, Sendable {
+    case cancelled
+    case shutdown
+    case unexpected(Int32)
+}
+
+struct WorkerProcessSession: Sendable {
+    private var activeGeneration: UUID?
+    private var outputBuffer = JSONLineBuffer()
+
+    mutating func begin(_ generation: UUID) {
+        activeGeneration = generation
+        outputBuffer = JSONLineBuffer()
+    }
+
+    mutating func append(_ data: Data, for generation: UUID) -> [String] {
+        guard activeGeneration == generation else { return [] }
+        return outputBuffer.append(data)
+    }
+
+    func isActive(_ generation: UUID) -> Bool {
+        activeGeneration == generation
+    }
+
+    mutating func finish(_ generation: UUID) -> Bool {
+        guard activeGeneration == generation else { return false }
+        activeGeneration = nil
+        outputBuffer = JSONLineBuffer()
+        return true
+    }
+}
+
 @MainActor
-final class WorkerClient: ObservableObject {
+protocol WorkerClientProtocol: AnyObject {
+    var isRunning: Bool { get }
+    var diagnostics: String { get }
+    var onMessage: ((WorkerMessage) -> Void)? { get set }
+    var onExit: ((WorkerProcessExit) -> Void)? { get set }
+
+    func start() throws
+    @discardableResult
+    func send(_ name: String, payload: [String: JSONValue]) throws -> String
+    func shutdown()
+    func cancelForRestart()
+}
+
+extension WorkerClientProtocol {
+    @discardableResult
+    func send(_ name: String) throws -> String {
+        try send(name, payload: [:])
+    }
+}
+
+@MainActor
+final class WorkerClient: ObservableObject, WorkerClientProtocol {
     enum ClientError: LocalizedError {
         case alreadyRunning
         case pythonMissing(URL)
@@ -28,12 +81,13 @@ final class WorkerClient: ObservableObject {
     @Published private(set) var diagnostics = ""
 
     var onMessage: ((WorkerMessage) -> Void)?
-    var onUnexpectedExit: ((Int32) -> Void)?
+    var onExit: ((WorkerProcessExit) -> Void)?
 
     let installation: RuntimeInstallation
     private var process: Process?
     private var inputHandle: FileHandle?
-    private var outputBuffer = JSONLineBuffer()
+    private var session = WorkerProcessSession()
+    private var requestedExit: WorkerProcessExit?
 
     init(installation: RuntimeInstallation) {
         self.installation = installation
@@ -50,6 +104,8 @@ final class WorkerClient: ObservableObject {
         let outputPipe = Pipe()
         let errorPipe = Pipe()
         let child = Process()
+        let generation = UUID()
+        session.begin(generation)
         child.executableURL = configuration.executableURL
         child.arguments = configuration.arguments
         child.currentDirectoryURL = configuration.currentDirectoryURL
@@ -61,26 +117,37 @@ final class WorkerClient: ObservableObject {
         outputPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
             guard !data.isEmpty else { return }
-            Task { @MainActor [weak self] in self?.consumeOutput(data) }
+            Task { @MainActor [weak self] in self?.consumeOutput(data, generation: generation) }
         }
         errorPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
             guard !data.isEmpty else { return }
-            Task { @MainActor [weak self] in self?.consumeDiagnostics(data) }
+            Task { @MainActor [weak self] in self?.consumeDiagnostics(data, generation: generation) }
         }
         child.terminationHandler = { [weak self] process in
             Task { @MainActor [weak self] in
                 guard let self else { return }
+                guard self.session.finish(generation) else { return }
+                outputPipe.fileHandleForReading.readabilityHandler = nil
+                errorPipe.fileHandleForReading.readabilityHandler = nil
+                let exit = self.requestedExit ?? .unexpected(process.terminationStatus)
+                self.requestedExit = nil
                 self.isRunning = false
                 self.process = nil
                 self.inputHandle = nil
-                if process.terminationStatus != 0 {
-                    self.onUnexpectedExit?(process.terminationStatus)
-                }
+                self.onExit?(exit)
             }
         }
 
-        try child.run()
+        do {
+            try child.run()
+        } catch {
+            _ = session.finish(generation)
+            outputPipe.fileHandleForReading.readabilityHandler = nil
+            errorPipe.fileHandleForReading.readabilityHandler = nil
+            throw error
+        }
+        requestedExit = nil
         process = child
         inputHandle = inputPipe.fileHandleForWriting
         isRunning = true
@@ -99,17 +166,38 @@ final class WorkerClient: ObservableObject {
     }
 
     func shutdown() {
+        guard let process else {
+            inputHandle?.closeFile()
+            inputHandle = nil
+            isRunning = false
+            return
+        }
+        requestedExit = .shutdown
         if isRunning {
             _ = try? send("shutdown")
         }
         inputHandle?.closeFile()
-        process = nil
         inputHandle = nil
         isRunning = false
+        if process.isRunning {
+            process.terminate()
+        }
     }
 
-    private func consumeOutput(_ data: Data) {
-        for line in outputBuffer.append(data) {
+    func cancelForRestart() {
+        guard let process else {
+            onExit?(.cancelled)
+            return
+        }
+        requestedExit = .cancelled
+        inputHandle?.closeFile()
+        inputHandle = nil
+        isRunning = false
+        process.terminate()
+    }
+
+    private func consumeOutput(_ data: Data, generation: UUID) {
+        for line in session.append(data, for: generation) {
             do {
                 onMessage?(try WorkerJSONCodec.decode(Data(line.utf8)))
             } catch {
@@ -118,7 +206,8 @@ final class WorkerClient: ObservableObject {
         }
     }
 
-    private func consumeDiagnostics(_ data: Data) {
+    private func consumeDiagnostics(_ data: Data, generation: UUID) {
+        guard session.isActive(generation) else { return }
         if let text = String(data: data, encoding: .utf8) {
             diagnostics += text
         }

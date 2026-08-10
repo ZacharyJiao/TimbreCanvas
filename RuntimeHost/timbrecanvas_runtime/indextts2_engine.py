@@ -8,13 +8,16 @@ from typing import Any
 
 from .engine import EngineCapabilities, EngineRegistry, ProgressCallback, TTSEngine
 from .model_validation import validate_v2_runtime
-from .output_paths import allocate_output, finalize_temporary_output, temporary_output
+from .output_paths import (
+    allocate_output,
+    finalize_temporary_output,
+    temporary_output,
+)
 
 
 class IndexTTS2Engine(TTSEngine):
     def __init__(self) -> None:
         self._model: Any | None = None
-        self._cancel_requested = False
 
     @property
     def capabilities(self) -> EngineCapabilities:
@@ -52,12 +55,16 @@ class IndexTTS2Engine(TTSEngine):
             raise FileNotFoundError(f"音色文件不存在: {speaker}")
         output = allocate_output(requested.parent, requested.name)
 
-        self._cancel_requested = False
         progress(0.05, "preparing")
-        if self._cancel_requested:
-            raise InterruptedError("生成已取消")
         seed = request.get("seed")
-        with temporary_output(output) as partial:
+        with temporary_output(
+            output,
+            partial_token=(
+                str(request["partialToken"])
+                if request.get("partialToken") is not None
+                else None
+            ),
+        ) as partial:
             model.generate(
                 text=text,
                 reference_audio=str(speaker),
@@ -81,9 +88,6 @@ class IndexTTS2Engine(TTSEngine):
             finalize_temporary_output(partial, output)
         progress(1.0, "complete")
         return {"outputPath": str(output), "sampleRate": 22050}
-
-    def cancel(self) -> None:
-        self._cancel_requested = True
 
     def shutdown(self) -> None:
         self._model = None
