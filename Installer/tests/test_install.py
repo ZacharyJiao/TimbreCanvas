@@ -64,3 +64,9 @@ def test_hash_verification_reports_changed_assets(tmp_path):
 
     with pytest.raises(ValueError, match="asset.bin"):
         verify_file_hashes(tmp_path, [{"path": "asset.bin", "sha256": "0" * 64}])
+
+
+def test_runtime_security_overlay_excludes_test_only_packages():
+    overlay = Path("Installer/security-overrides.txt").read_text(encoding="utf-8")
+
+    assert "pytest==" not in overlay
