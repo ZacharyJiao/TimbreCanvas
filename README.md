@@ -56,6 +56,14 @@ TimbreCanvas 是一款本地优先的原生 macOS 语音创作工具。它用 Sw
 ./script/setup.sh --help
 ```
 
+只查看固定版本的外部模型许可说明，不执行安装：
+
+```bash
+./script/setup.sh --show-model-licenses
+```
+
+重复执行安装会刷新内置示例音色，但保留已有自定义音色及其名称。若 `voices.json` 已损坏，安装器和 App 都会拒绝覆盖原文件。
+
 ## 使用说明
 
 中文版完整手册见 [docs/使用说明.md](docs/使用说明.md)。

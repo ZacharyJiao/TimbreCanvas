@@ -92,7 +92,11 @@ final class GenerationStore: ObservableObject {
             )
         } catch {
             isGenerating = false
-            errorMessage = error.localizedDescription
+            if let failure = error as? WorkerFailure, failure.code == "cancelled" {
+                errorMessage = nil
+            } else {
+                errorMessage = error.localizedDescription
+            }
         }
     }
 

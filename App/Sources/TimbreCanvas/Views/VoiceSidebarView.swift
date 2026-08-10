@@ -10,6 +10,14 @@ struct VoiceSidebarView: View {
 
     var body: some View {
         List(selection: $store.selectedID) {
+            if let error = store.persistenceErrorMessage {
+                Section {
+                    Label(error, systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .accessibilityLabel("音色清单错误：\(error)")
+                }
+            }
             Section("默认声音") {
                 ForEach(store.filteredBuiltIns) { voice in
                     row(voice)

@@ -52,10 +52,6 @@ class TTSEngine(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def cancel(self) -> None:
-        raise NotImplementedError
-
-    @abstractmethod
     def shutdown(self) -> None:
         raise NotImplementedError
 

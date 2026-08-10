@@ -10,6 +10,28 @@ REUSE_PROJECT=""
 ACCEPT_MODEL_LICENSES=0
 SKIP_APP=0
 DRY_RUN=0
+SHOW_MODEL_LICENSES=0
+
+print_model_license_notice() {
+  cat <<'EOF'
+External model license notice
+
+Pinned license snapshots:
+  IndexTTS 2 (English): Installer/Licenses/IndexTTS-2/LICENSE.txt
+  IndexTTS 2 (Chinese): Installer/Licenses/IndexTTS-2/LICENSE_ZH.txt
+  BigVGAN (MIT):         Installer/Licenses/BigVGAN/LICENSE.txt
+
+Important obligations:
+  - The local 8-bit IndexTTS 2 conversion is a Derivative Work under the
+    bilibili Model Use License Agreement. Keep the license copies with it and
+    review all use restrictions and separate-license thresholds.
+  - MaskGCT is declared CC BY-NC 4.0. Do not assume commercial use is allowed.
+  - The other downloaded components retain their publishers' license terms.
+
+Full component sources, pinned revisions and license links:
+  THIRD_PARTY_MODELS.md
+EOF
+}
 
 usage() {
   cat <<'EOF'
@@ -22,6 +44,7 @@ Options:
   --accept-model-licenses   Accept the external model licenses non-interactively.
   --skip-app                Configure the runtime without building/installing the app.
   --dry-run                 Print the selected layout without changing files.
+  --show-model-licenses     Show pinned model-license obligations, then exit.
   -h, --help                Show this help.
 EOF
 }
@@ -52,6 +75,10 @@ while (($#)); do
       DRY_RUN=1
       shift
       ;;
+    --show-model-licenses)
+      SHOW_MODEL_LICENSES=1
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -63,6 +90,12 @@ while (($#)); do
       ;;
   esac
 done
+
+if ((SHOW_MODEL_LICENSES)); then
+  print_model_license_notice
+  echo "No files were changed."
+  exit 0
+fi
 
 echo "TimbreCanvas setup"
 echo "  App configuration: $APP_SUPPORT"
@@ -98,22 +131,15 @@ if [[ -n "$REUSE_PROJECT" ]]; then
     --support-root "$APP_SUPPORT" \
     --manifest "$MANIFEST"
 else
+  print_model_license_notice
   if ((ACCEPT_MODEL_LICENSES == 0)); then
-    cat <<'EOF'
-
-The app is MIT-licensed, but the external models are not part of the app.
-Before downloading, review and accept their licenses:
-  IndexTTS 2: https://huggingface.co/IndexTeam/IndexTTS-2
-  BigVGAN:    https://huggingface.co/nvidia/bigvgan_v2_22khz_80band_256x
-  MaskGCT:    https://huggingface.co/amphion/MaskGCT
-  W2V-BERT:   https://huggingface.co/facebook/w2v-bert-2.0
-  CAMPPlus:   https://huggingface.co/funasr/campplus
-EOF
     read -r -p "Type I AGREE to continue: " MODEL_LICENSE_RESPONSE
     if [[ "$MODEL_LICENSE_RESPONSE" != "I AGREE" ]]; then
       echo "Setup cancelled; nothing was downloaded."
       exit 1
     fi
+  else
+    echo "Model licenses accepted through --accept-model-licenses."
   fi
 
   FREE_KB="$(df -Pk "$HOME" | awk 'NR==2 {print $4}')"

@@ -44,6 +44,23 @@
     {"path": "vq2emb.safetensors", "sha256": "12e7f6ddec7bdd485178fa572afe2e43d9d0e7dae296a0973dd5e33a1257e68a"},
     {"path": "wav2vec2bert_stats.pt", "sha256": "c9c176c2b8850ab2e3ba828bbfa969deaf4566ce55db5f2687b8430b87526ad2"}
   ],
+  "runtimeLicenseFiles": [
+    {
+      "source": "Licenses/IndexTTS-2/LICENSE.txt",
+      "path": "Licenses/IndexTTS-2/LICENSE.txt",
+      "sha256": "53875532237e0a97b17a41721556ff57e93193fc566e48c3a0febe6e35bb5343"
+    },
+    {
+      "source": "Licenses/IndexTTS-2/LICENSE_ZH.txt",
+      "path": "Licenses/IndexTTS-2/LICENSE_ZH.txt",
+      "sha256": "366175ecf329274358801b8365922677c52f25e643dcf00f0bc15857b5b2777f"
+    },
+    {
+      "source": "Licenses/BigVGAN/LICENSE.txt",
+      "path": "Licenses/BigVGAN/LICENSE.txt",
+      "sha256": "8ad5938dbf67d5d4c4802bbaae7cc9193b8f78c693e1a12cab358d0c17dce152"
+    }
+  ],
   "voices": [
     {"name": "voice_01.wav", "url": "https://huggingface.co/spaces/IndexTeam/IndexTTS-2-Demo/resolve/b01840e8e4fd9753743a6d0466cd73ae1d634a68/examples/voice_01.wav", "sha256": "e33e6ee0107a1dd58e1d66dd90c13df3d55a8683047cc3d7ea206dad84ed3fc8"},
     {"name": "voice_02.wav", "url": "https://huggingface.co/spaces/IndexTeam/IndexTTS-2-Demo/resolve/b01840e8e4fd9753743a6d0466cd73ae1d634a68/examples/voice_02.wav", "sha256": "8fe2dd1dbd54ef85a073fbc4c8fc0198f8d4523cc3320a600de0e347a3d8b491"},

@@ -5,12 +5,16 @@ enum VoiceLibraryError: LocalizedError, Equatable {
     case profileNotFound
     case builtInDeletionDenied
     case emptyName
+    case manifestUnavailable
+    case unsafeProfilePath
 
     var errorDescription: String? {
         switch self {
         case .profileNotFound: "找不到这个音色"
         case .builtInDeletionDenied: "默认音色不能删除"
         case .emptyName: "音色名称不能为空"
+        case .manifestUnavailable: "音色清单已损坏；请先恢复 voices.json，原文件不会被覆盖"
+        case .unsafeProfilePath: "音色文件路径不安全，未执行删除"
         }
     }
 }
@@ -28,15 +32,23 @@ final class VoiceLibraryStore: ObservableObject {
 
     let manifestURL: URL?
     let customDirectory: URL?
+    private let persistenceError: VoiceLibraryError?
+    private let manifestWriter: (Data, URL) throws -> Void
 
     init(
         profiles: [VoiceProfile],
         manifestURL: URL? = nil,
-        customDirectory: URL? = nil
+        customDirectory: URL? = nil,
+        persistenceError: VoiceLibraryError? = nil,
+        manifestWriter: ((Data, URL) throws -> Void)? = nil
     ) {
         self.profiles = profiles
         self.manifestURL = manifestURL
         self.customDirectory = customDirectory
+        self.persistenceError = persistenceError
+        self.manifestWriter = manifestWriter ?? { data, url in
+            try data.write(to: url, options: .atomic)
+        }
         selectedID = profiles.first?.id
     }
 
@@ -45,7 +57,20 @@ final class VoiceLibraryStore: ObservableObject {
         let manifest = voices.appending(path: "voices.json")
         let custom = voices.appending(path: "custom", directoryHint: .isDirectory)
         try? FileManager.default.createDirectory(at: custom, withIntermediateDirectories: true)
-        let restored = (try? loadManifest(at: manifest)) ?? []
+        let restored: [VoiceProfile]
+        let persistenceError: VoiceLibraryError?
+        if FileManager.default.fileExists(atPath: manifest.path) {
+            do {
+                restored = try loadManifest(at: manifest)
+                persistenceError = nil
+            } catch {
+                restored = []
+                persistenceError = .manifestUnavailable
+            }
+        } else {
+            restored = []
+            persistenceError = nil
+        }
         let customProfiles = restored.filter { $0.kind == .custom }
         let aliases = Dictionary(
             uniqueKeysWithValues: restored.filter { $0.kind == .builtIn }.map { ($0.id, $0.name) }
@@ -58,9 +83,12 @@ final class VoiceLibraryStore: ObservableObject {
         let store = VoiceLibraryStore(
             profiles: builtIns + customProfiles,
             manifestURL: manifest,
-            customDirectory: custom
+            customDirectory: custom,
+            persistenceError: persistenceError
         )
-        try? store.persist()
+        if persistenceError == nil {
+            try? store.persist()
+        }
         return store
     }
 
@@ -71,39 +99,68 @@ final class VoiceLibraryStore: ObservableObject {
     var selectedVoice: VoiceProfile? {
         profiles.first { $0.id == selectedID } ?? profiles.first
     }
+    var persistenceErrorMessage: String? { persistenceError?.errorDescription }
 
     func add(_ profile: VoiceProfile) throws {
+        try ensurePersistenceAvailable()
+        let previousProfiles = profiles
+        let previousSelection = selectedID
         profiles.append(profile)
         selectedID = profile.id
-        try persist()
+        do {
+            try persist()
+        } catch {
+            profiles = previousProfiles
+            selectedID = previousSelection
+            throw error
+        }
     }
 
     func rename(id: String, to newName: String) throws {
+        try ensurePersistenceAvailable()
         let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw VoiceLibraryError.emptyName }
         guard let index = profiles.firstIndex(where: { $0.id == id }) else {
             throw VoiceLibraryError.profileNotFound
         }
+        let previousName = profiles[index].name
         profiles[index].name = trimmed
-        try persist()
+        do {
+            try persist()
+        } catch {
+            profiles[index].name = previousName
+            throw error
+        }
     }
 
     func delete(id: String) throws {
+        try ensurePersistenceAvailable()
         guard let index = profiles.firstIndex(where: { $0.id == id }) else {
             throw VoiceLibraryError.profileNotFound
         }
         let profile = profiles[index]
         guard profile.kind == .custom else { throw VoiceLibraryError.builtInDeletionDenied }
-        removeOwnedFile(profile.referenceURL)
-        removeOwnedFile(profile.speakerURL)
+        let reference = try ownedFile(profile.referenceURL, expectedExtension: "wav")
+        let speaker = try ownedFile(profile.speakerURL, expectedExtension: "npz")
+        let previousProfiles = profiles
+        let previousSelection = selectedID
         profiles.remove(at: index)
         selectedID = profiles.first?.id
-        try persist()
+        do {
+            try persist()
+        } catch {
+            profiles = previousProfiles
+            selectedID = previousSelection
+            throw error
+        }
+        try? FileManager.default.removeItem(at: reference)
+        try? FileManager.default.removeItem(at: speaker)
     }
 
     static func loadManifest(at url: URL) throws -> [VoiceProfile] {
         let manifest = try JSONDecoder().decode(VoiceManifest.self, from: Data(contentsOf: url))
         guard manifest.schemaVersion == 1 else { throw CocoaError(.fileReadCorruptFile) }
+        try validateProfiles(manifest.profiles)
         return manifest.profiles
     }
 
@@ -117,6 +174,7 @@ final class VoiceLibraryStore: ObservableObject {
     }
 
     private func persist() throws {
+        try ensurePersistenceAvailable()
         guard let manifestURL else { return }
         try FileManager.default.createDirectory(
             at: manifestURL.deletingLastPathComponent(),
@@ -124,16 +182,45 @@ final class VoiceLibraryStore: ObservableObject {
         )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        try Self.validateProfiles(profiles)
         let data = try encoder.encode(VoiceManifest(schemaVersion: 1, profiles: profiles))
-        try data.write(to: manifestURL, options: .atomic)
+        try manifestWriter(data, manifestURL)
     }
 
-    private func removeOwnedFile(_ url: URL) {
-        guard let customDirectory else { return }
-        let root = customDirectory.standardizedFileURL.path + "/"
-        let candidate = url.standardizedFileURL.path
-        guard candidate.hasPrefix(root) else { return }
-        try? FileManager.default.removeItem(at: url)
+    private func ensurePersistenceAvailable() throws {
+        if let persistenceError {
+            throw persistenceError
+        }
+    }
+
+    private func ownedFile(_ url: URL, expectedExtension: String) throws -> URL {
+        guard let customDirectory else { throw VoiceLibraryError.unsafeProfilePath }
+        let root = customDirectory.standardizedFileURL.resolvingSymlinksInPath()
+        let candidate = url.standardizedFileURL
+        let resolvedParent = candidate.deletingLastPathComponent().resolvingSymlinksInPath()
+        guard resolvedParent == root,
+              candidate.pathExtension.caseInsensitiveCompare(expectedExtension) == .orderedSame,
+              !candidate.lastPathComponent.hasPrefix(".") else {
+            throw VoiceLibraryError.unsafeProfilePath
+        }
+        return candidate
+    }
+
+    private static func validateProfiles(_ profiles: [VoiceProfile]) throws {
+        let identifiers = profiles.map(\.id)
+        guard Set(identifiers).count == identifiers.count,
+              profiles.allSatisfy({ profile in
+                  !profile.id.isEmpty
+                      && !profile.engineID.isEmpty
+                      && profile.profileVersion > 0
+                      && !profile.name.isEmpty
+                      && !profile.referencePath.isEmpty
+                      && !profile.speakerPath.isEmpty
+                      && !profile.createdAt.isEmpty
+                      && !(profile.kind == .custom && profile.id.hasPrefix("builtin-"))
+              }) else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
     }
 
     private static func builtInProfiles(voiceRoot: URL) -> [VoiceProfile] {
