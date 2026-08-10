@@ -20,14 +20,34 @@ import Testing
     #expect(store.state == .ready)
 }
 
-@Test func unexpectedExitOnlyAutomaticallyRecoversOnce() {
+@Test func consecutiveUnexpectedExitsOnlyAutomaticallyRecoverOnce() {
     var store = WorkerStateStore(state: .ready)
 
     #expect(store.handleUnexpectedExit() == .restart)
     #expect(store.state == .recovering)
 
-    store.state = .ready
     #expect(store.handleUnexpectedExit() == .stop)
     #expect(store.state == .unavailable)
 }
 
+@Test func readyWithoutSuccessfulWorkDoesNotResetAutomaticRecoveryBudget() {
+    var store = WorkerStateStore(state: .ready)
+
+    #expect(store.handleUnexpectedExit() == .restart)
+    store.receive(.ready(requestID: "recovered", engineID: "indextts2"))
+
+    #expect(store.handleUnexpectedExit() == .stop)
+    #expect(store.state == .unavailable)
+}
+
+@Test func successfulGenerationResetsAutomaticRecoveryBudget() {
+    var store = WorkerStateStore(state: .ready)
+
+    #expect(store.handleUnexpectedExit() == .restart)
+    store.receive(.ready(requestID: "recovered", engineID: "indextts2"))
+    store.beginGeneration()
+    store.receive(.result(.init(requestID: "generated", outputPath: "/tmp/result.wav")))
+
+    #expect(store.handleUnexpectedExit() == .restart)
+    #expect(store.state == .recovering)
+}

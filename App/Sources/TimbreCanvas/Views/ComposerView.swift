@@ -171,31 +171,35 @@ struct ComposerView: View {
 
                 if generation.isGenerating {
                     ProgressWaveformView(progress: appModel.progress)
-                }
-
-                Button {
-                    Task {
-                        await generation.generate(
-                            voice: voiceLibrary.selectedVoice,
-                            capability: capability,
-                            appModel: appModel
-                        )
+                    Button("取消生成", role: .cancel) {
+                        appModel.cancelGeneration()
                     }
-                } label: {
-                    Label(
-                        generation.isGenerating ? "正在生成" : "生成语音",
-                        systemImage: "paperplane.fill"
-                    )
-                    .font(.body.weight(.semibold))
-                    .frame(minWidth: 112)
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                    .keyboardShortcut(.escape, modifiers: [])
+                    .help("取消生成并重新加载模型（Esc）")
+                } else {
+                    Button {
+                        Task {
+                            await generation.generate(
+                                voice: voiceLibrary.selectedVoice,
+                                capability: capability,
+                                appModel: appModel
+                            )
+                        }
+                    } label: {
+                        Label("生成语音", systemImage: "paperplane.fill")
+                            .font(.body.weight(.semibold))
+                            .frame(minWidth: 112)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .tint(StudioDesign.accent)
+                    .buttonBorderShape(.roundedRectangle(radius: StudioDesign.compactCornerRadius))
+                    .keyboardShortcut(.return, modifiers: .command)
+                    .disabled(!canGenerate)
+                    .help("生成语音（⌘↩）")
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .tint(StudioDesign.accent)
-                .buttonBorderShape(.roundedRectangle(radius: StudioDesign.compactCornerRadius))
-                .keyboardShortcut(.return, modifiers: .command)
-                .disabled(!canGenerate)
-                .help("生成语音（⌘↩）")
             }
         }
         .padding(16)

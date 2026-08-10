@@ -33,6 +33,7 @@ class AssetManifest:
     mlx_port: dict[str, Any]
     models: list[dict[str, Any]]
     converted_model_files: list[dict[str, str]]
+    runtime_license_files: list[dict[str, str]]
     voices: list[dict[str, str]]
 
     @classmethod
@@ -44,6 +45,7 @@ class AssetManifest:
             mlx_port=payload["mlxPort"],
             models=payload["models"],
             converted_model_files=payload["convertedModelFiles"],
+            runtime_license_files=payload["runtimeLicenseFiles"],
             voices=payload["voices"],
         )
 
@@ -130,6 +132,89 @@ def verify_file_hashes(root: Path, entries: list[dict[str, str]]) -> None:
             failures.append(f"{entry['path']} (SHA-256 mismatch)")
     if failures:
         raise ValueError("asset verification failed: " + ", ".join(failures))
+
+
+def install_runtime_license_files(
+    source_root: Path,
+    destination_root: Path,
+    entries: list[dict[str, str]],
+) -> None:
+    source_root = source_root.resolve()
+    destination_root = destination_root.resolve()
+    verified: list[tuple[Path, bytes]] = []
+    for entry in entries:
+        source = (source_root / entry["source"]).resolve()
+        destination = (destination_root / entry["path"]).resolve()
+        source.relative_to(source_root)
+        destination.relative_to(destination_root)
+        contents = source.read_bytes()
+        if hashlib.sha256(contents).hexdigest() != entry["sha256"]:
+            raise ValueError(
+                f"asset verification failed: {entry['source']} (SHA-256 mismatch)"
+            )
+        verified.append((destination, contents))
+
+    staged: list[tuple[Path, Path]] = []
+    try:
+        for destination, contents in verified:
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            descriptor, temporary_name = tempfile.mkstemp(
+                prefix=f".{destination.name}.", suffix=".tmp", dir=destination.parent
+            )
+            temporary = Path(temporary_name)
+            staged.append((temporary, destination))
+            with os.fdopen(descriptor, "wb") as stream:
+                stream.write(contents)
+                stream.flush()
+                os.fsync(stream.fileno())
+        for temporary, destination in staged:
+            os.replace(temporary, destination)
+    finally:
+        for temporary, _ in staged:
+            temporary.unlink(missing_ok=True)
+    verify_file_hashes(destination_root, entries)
+
+
+def _validate_voice_profiles(profiles: list[Any]) -> None:
+    string_fields = (
+        "id",
+        "engineID",
+        "name",
+        "kind",
+        "referencePath",
+        "speakerPath",
+        "createdAt",
+        "note",
+    )
+    identifiers: set[str] = set()
+    for index, profile in enumerate(profiles):
+        if not isinstance(profile, dict):
+            raise ValueError(f"voice profile {index} must be an object")
+        for field in string_fields:
+            if not isinstance(profile.get(field), str):
+                raise ValueError(f"voice profile {index} has invalid {field}")
+        for field in (
+            "id",
+            "engineID",
+            "name",
+            "referencePath",
+            "speakerPath",
+            "createdAt",
+        ):
+            if not profile[field]:
+                raise ValueError(f"voice profile {index} has empty {field}")
+        version = profile.get("profileVersion")
+        if isinstance(version, bool) or not isinstance(version, int) or version < 1:
+            raise ValueError(f"voice profile {index} has invalid profileVersion")
+        if profile["kind"] not in {"builtIn", "custom"}:
+            raise ValueError(f"voice profile {index} has invalid kind")
+        if profile["kind"] == "custom" and profile["id"].startswith("builtin-"):
+            raise ValueError(
+                f"voice profile {index} uses the reserved built-in id namespace"
+            )
+        if profile["id"] in identifiers:
+            raise ValueError(f"voice manifest contains duplicate id: {profile['id']}")
+        identifiers.add(profile["id"])
 
 
 def write_app_configuration(support_root: Path, runtime: ExistingRuntime) -> Path:
@@ -259,37 +344,74 @@ def _precompute_builtin_voices(runtime: ExistingRuntime) -> None:
 
 
 def _write_voice_manifest(runtime: ExistingRuntime) -> None:
+    manifest_path = runtime.voices / "voices.json"
+    existing_profiles: list[dict[str, Any]] = []
+    if manifest_path.exists():
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if manifest.get("schemaVersion") != 1 or not isinstance(
+            manifest.get("profiles"), list
+        ):
+            raise ValueError("unsupported voice manifest schema")
+        existing_profiles = manifest["profiles"]
+        _validate_voice_profiles(existing_profiles)
+    existing_by_id = {
+        profile.get("id"): profile
+        for profile in existing_profiles
+        if isinstance(profile, dict) and isinstance(profile.get("id"), str)
+    }
     profiles = []
     for reference in sorted((runtime.voices / "builtin").glob("voice_*.wav")):
         suffix = reference.stem.removeprefix("voice_")
+        identifier = f"builtin-{reference.stem}"
+        existing = existing_by_id.get(identifier, {})
         profiles.append(
             {
-                "id": f"builtin-{reference.stem}",
+                "id": identifier,
                 "engineID": "indextts2",
                 "profileVersion": 1,
-                "name": f"官方示例 {suffix}",
+                "name": existing.get("name", f"官方示例 {suffix}"),
                 "kind": "builtIn",
                 "referencePath": str(reference),
                 "speakerPath": str(reference.with_suffix(".npz")),
-                "createdAt": datetime.now(UTC)
-                .replace(microsecond=0)
-                .isoformat()
-                .replace("+00:00", "Z"),
+                "createdAt": existing.get(
+                    "createdAt",
+                    datetime.now(UTC)
+                    .replace(microsecond=0)
+                    .isoformat()
+                    .replace("+00:00", "Z"),
+                ),
                 "note": "IndexTTS 2 官方示例",
             }
         )
+    profiles.extend(
+        profile
+        for profile in existing_profiles
+        if isinstance(profile, dict) and profile.get("kind") == "custom"
+    )
+    _validate_voice_profiles(profiles)
     (runtime.voices / "custom").mkdir(parents=True, exist_ok=True)
     (runtime.presets).mkdir(parents=True, exist_ok=True)
-    (runtime.voices / "voices.json").write_text(
+    encoded = (
         json.dumps(
             {"schemaVersion": 1, "profiles": profiles},
             ensure_ascii=False,
             indent=2,
             sort_keys=True,
         )
-        + "\n",
-        encoding="utf-8",
+        + "\n"
     )
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=".voices.", suffix=".tmp", dir=runtime.voices
+    )
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            stream.write(encoded)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, manifest_path)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def perform_fresh_install(
@@ -303,6 +425,11 @@ def perform_fresh_install(
         raise ValueError(f"Python runtime is missing: {runtime.python}")
     source_model = _download_models(manifest, runtime)
     _convert_model(manifest, runtime, source_model)
+    install_runtime_license_files(
+        manifest_path.parent,
+        runtime.model,
+        manifest.runtime_license_files,
+    )
     _download_builtin_voices(manifest, runtime)
     _precompute_builtin_voices(runtime)
     _write_voice_manifest(runtime)
@@ -331,6 +458,11 @@ def main() -> int:
         runtime = ExistingRuntime.from_project(arguments.project)
         validate_existing_runtime(runtime)
         verify_file_hashes(runtime.model, manifest.converted_model_files)
+        install_runtime_license_files(
+            arguments.manifest.parent,
+            runtime.model,
+            manifest.runtime_license_files,
+        )
         write_app_configuration(arguments.support_root, runtime)
     else:
         perform_fresh_install(
