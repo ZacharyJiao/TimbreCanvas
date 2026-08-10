@@ -7,13 +7,14 @@ if [[ -n "$MODE" && "$MODE" != "--history" ]]; then
   exit 2
 fi
 
-PATTERN='(/Users/[^/[:space:]]+/|[[:alnum:]_.%+-]+@[[:alnum:].-]+[.]local([^[:alnum:]_-]|$)|BEGIN (RSA |OPENSSH |EC |DSA )?PRIVATE KEY)'
+USER_DIRECTORY_PATTERN='/''Users/[^/[:space:]]+/'
+PATTERN="($USER_DIRECTORY_PATTERN|[[:alnum:]_.%+-]+@[[:alnum:].-]+[.]local([^[:alnum:]_-]|$)|BEGIN (RSA |OPENSSH |EC |DSA )?PRIVATE KEY)"
 FAILED=0
 
 scan_tree() {
   local tree="$1"
   local matches
-  if matches="$(git grep -I -l -E "$PATTERN" "$tree" -- 2>/dev/null)" && [[ -n "$matches" ]]; then
+  if matches="$(git grep -I -l -E "$PATTERN" "$tree" -- . ':(exclude)script/check_public_tree.sh' 2>/dev/null)" && [[ -n "$matches" ]]; then
     echo "Private path, local identity, or private-key material found at:"
     echo "$matches"
     FAILED=1

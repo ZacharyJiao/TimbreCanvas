@@ -99,6 +99,7 @@ import Testing
     #expect(configuration.environment["PYTHONPATH"] == "\(resources.path)/RuntimeHost:/existing/python")
     #expect(configuration.environment["HF_HOME"] == "\(support.path)/Cache/huggingface")
     #expect(configuration.environment["TIMBRECANVAS_MODEL_PATH"] == "\(support.path)/Models/IndexTTS-2-MLX-8bit")
+    #expect(configuration.environment["PYTHONDONTWRITEBYTECODE"] == "1")
 }
 
 @Test func unsupportedConfigurationSchemaIsRejected() throws {

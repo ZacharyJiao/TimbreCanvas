@@ -137,6 +137,7 @@ final class WorkerClient: ObservableObject {
             .joined(separator: ":")
         environment["TIMBRECANVAS_SUPPORT_ROOT"] = installation.supportRoot.path
         environment["TIMBRECANVAS_MODEL_PATH"] = installation.modelURL.path
+        environment["PYTHONDONTWRITEBYTECODE"] = "1"
         environment["HF_HOME"] = huggingFace.path
         environment["HF_HUB_CACHE"] = huggingFace.appending(path: "hub").path
         environment["TRANSFORMERS_CACHE"] = huggingFace.appending(path: "transformers").path
