@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "mlxPort": {
+    "repository": "https://github.com/solar2ain/mlx-indextts.git",
+    "revision": "1026564f418e633e885df349e42ccf31a0ea9884"
+  },
+  "models": [
+    {
+      "repository": "IndexTeam/IndexTTS-2",
+      "revision": "740dcaff396282ffb241903d150ac011cd4b1ede",
+      "allowPatterns": ["bpe.model", "config.yaml", "feat1.pt", "feat2.pt", "gpt.pth", "s2mel.pth", "wav2vec2bert_stats.pt", "LICENSE*", "README*"],
+      "localDirectory": "IndexTTS-2-source"
+    },
+    {
+      "repository": "nvidia/bigvgan_v2_22khz_80band_256x",
+      "revision": "633ff708ed5b74903e86ff1298cf4a98e921c513",
+      "allowPatterns": ["bigvgan_generator.pt", "config.json", "LICENSE*", "README*"]
+    },
+    {
+      "repository": "amphion/MaskGCT",
+      "revision": "265c6cef07625665d0c28d2faafb1415562379dc",
+      "allowPatterns": ["semantic_codec/model.safetensors", "LICENSE*", "README*"]
+    },
+    {
+      "repository": "facebook/w2v-bert-2.0",
+      "revision": "da985ba0987f70aaeb84a80f2851cfac8c697a7b",
+      "allowPatterns": ["config.json", "model.safetensors", "preprocessor_config.json", "LICENSE*", "README*"]
+    },
+    {
+      "repository": "funasr/campplus",
+      "revision": "e4b6ede7ce16997aff4ae69fbca1f0175e2afede",
+      "allowPatterns": ["campplus_cn_common.bin", "LICENSE*", "README*"]
+    }
+  ],
+  "convertedModelFiles": [
+    {"path": "bigvgan.safetensors", "sha256": "e137f3aae12de6f7935e4a4ec72cc14df788dcc6d11c55ecc09c12528418a99c"},
+    {"path": "config.json", "sha256": "700539a0da63720da64e705157601941944e3f205e544bcc39f92c0c075b3a52"},
+    {"path": "config.yaml", "sha256": "ea9c2815ecc3874577c7ac158b97248c027250e5b05972fbbb1216b6d6539081"},
+    {"path": "feat1.pt", "sha256": "f219cb447d80216ba615666da2ff8d63ac544eee26657f3a7b278692bf7a67c4"},
+    {"path": "feat2.pt", "sha256": "9c4292e96dee535aea9a6206e9a0c856dd578dde9212acdb16dd3ada4d12bf80"},
+    {"path": "gpt.safetensors", "sha256": "6b21870f1ed3441464e63655440cde2b8ef163d76d993800c9f70df826106949"},
+    {"path": "s2mel.safetensors", "sha256": "b923a2ee539db5079210dbf503ce79c68a7d858fd0b4178b6addfdee6cd8bde1"},
+    {"path": "tokenizer.model", "sha256": "b2a5ce8090d32da3642cc4f81fdc996376bc6dd3f4cd5e3d165f71120d9f2bc8"},
+    {"path": "vq2emb.safetensors", "sha256": "12e7f6ddec7bdd485178fa572afe2e43d9d0e7dae296a0973dd5e33a1257e68a"},
+    {"path": "wav2vec2bert_stats.pt", "sha256": "c9c176c2b8850ab2e3ba828bbfa969deaf4566ce55db5f2687b8430b87526ad2"}
+  ],
+  "voices": [
+    {"name": "voice_01.wav", "url": "https://huggingface.co/spaces/IndexTeam/IndexTTS-2-Demo/resolve/b01840e8e4fd9753743a6d0466cd73ae1d634a68/examples/voice_01.wav", "sha256": "e33e6ee0107a1dd58e1d66dd90c13df3d55a8683047cc3d7ea206dad84ed3fc8"},
+    {"name": "voice_02.wav", "url": "https://huggingface.co/spaces/IndexTeam/IndexTTS-2-Demo/resolve/b01840e8e4fd9753743a6d0466cd73ae1d634a68/examples/voice_02.wav", "sha256": "8fe2dd1dbd54ef85a073fbc4c8fc0198f8d4523cc3320a600de0e347a3d8b491"},
+    {"name": "voice_03.wav", "url": "https://huggingface.co/spaces/IndexTeam/IndexTTS-2-Demo/resolve/b01840e8e4fd9753743a6d0466cd73ae1d634a68/examples/voice_03.wav", "sha256": "50e8b632efd794418919e2d33c8c2aab9189a57f4d21ef55020413be9f2b292a"},
+    {"name": "voice_04.wav", "url": "https://huggingface.co/spaces/IndexTeam/IndexTTS-2-Demo/resolve/b01840e8e4fd9753743a6d0466cd73ae1d634a68/examples/voice_04.wav", "sha256": "2a3d2536245f45fd5e1eef046dd768ae7b72a0dba3ec3f370f145862fe64b3b2"},
+    {"name": "voice_05.wav", "url": "https://huggingface.co/spaces/IndexTeam/IndexTTS-2-Demo/resolve/b01840e8e4fd9753743a6d0466cd73ae1d634a68/examples/voice_05.wav", "sha256": "eefb7f4a29a8b36f08d5cc1014ea947dbe9f7bef348f07c40263058e604a98eb"},
+    {"name": "voice_06.wav", "url": "https://huggingface.co/spaces/IndexTeam/IndexTTS-2-Demo/resolve/b01840e8e4fd9753743a6d0466cd73ae1d634a68/examples/voice_06.wav", "sha256": "2d85800fe261d106c3274fa792cbb952458c4b0b2e1b908340a8cd0d63c73a30"},
+    {"name": "voice_07.wav", "url": "https://huggingface.co/spaces/IndexTeam/IndexTTS-2-Demo/resolve/b01840e8e4fd9753743a6d0466cd73ae1d634a68/examples/voice_07.wav", "sha256": "bcb10f84e63c3fdbfe99ac4184ca403b46a6d20b50540732713d48c4c95375ce"},
+    {"name": "voice_08.wav", "url": "https://huggingface.co/spaces/IndexTeam/IndexTTS-2-Demo/resolve/b01840e8e4fd9753743a6d0466cd73ae1d634a68/examples/voice_08.wav", "sha256": "2e2c5f4859999b1ada95ee801d50c3c72879147269a4ed99e385fd917dae5c6f"},
+    {"name": "voice_09.wav", "url": "https://huggingface.co/spaces/IndexTeam/IndexTTS-2-Demo/resolve/b01840e8e4fd9753743a6d0466cd73ae1d634a68/examples/voice_09.wav", "sha256": "8702467b9b3c83a16bead578e131c4388b3ef82aeff861bd336e622a9ae8a511"},
+    {"name": "voice_11.wav", "url": "https://huggingface.co/spaces/IndexTeam/IndexTTS-2-Demo/resolve/b01840e8e4fd9753743a6d0466cd73ae1d634a68/examples/voice_11.wav", "sha256": "82730e38498413d4371a76e841cd91fa2f74843b79ad3b606d45ad8a7b7a736c"},
+    {"name": "voice_12.wav", "url": "https://huggingface.co/spaces/IndexTeam/IndexTTS-2-Demo/resolve/b01840e8e4fd9753743a6d0466cd73ae1d634a68/examples/voice_12.wav", "sha256": "d67bd4f51773677d5902409813b9bb4c1d59b8243c74fc104553b80b49edd22b"}
+  ]
+}

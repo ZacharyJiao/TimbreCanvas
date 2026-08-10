@@ -1,0 +1,12 @@
+# Minimum versions that address currently published Python advisories.
+# Keep this small: the upstream MLX lock remains the compatibility source of truth.
+click==8.3.3
+idna==3.15
+msgpack==1.2.1
+pillow==12.3.0
+pygments==2.20.0
+pytest==9.0.3
+requests==2.33.0
+setuptools==83.0.0
+transformers==5.5.0
+urllib3==2.7.0
