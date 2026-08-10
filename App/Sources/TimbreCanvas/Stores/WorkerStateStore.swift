@@ -30,6 +30,7 @@ struct WorkerStateStore: Equatable, Sendable {
             state = .ready
         case .result:
             if state == .generating {
+                recoveryAttempts = 0
                 state = .ready
             }
         case .progress:

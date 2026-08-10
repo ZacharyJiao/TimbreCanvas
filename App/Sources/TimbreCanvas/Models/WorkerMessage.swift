@@ -50,10 +50,12 @@ struct WorkerCommand: Codable, Equatable, Sendable {
     }
 }
 
-struct WorkerFailure: Codable, Equatable, Error, Sendable {
+struct WorkerFailure: Codable, Equatable, LocalizedError, Sendable {
     let requestID: String?
     let code: String
     let message: String
+
+    var errorDescription: String? { message }
 }
 
 struct WorkerResult: Equatable, Sendable {
@@ -183,4 +185,3 @@ struct JSONLineBuffer: Sendable {
         return lines
     }
 }
-
