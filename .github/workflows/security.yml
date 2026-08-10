@@ -23,6 +23,9 @@ jobs:
       - name: Check privacy and blocked binaries
         run: ./script/check_public_tree.sh --history
 
+      - name: Check required CI trigger contract
+        run: ./script/check_required_ci_contract.sh
+
       - name: Install and run Gitleaks
         run: |
           curl --proto '=https' --tlsv1.2 -fsSL \
