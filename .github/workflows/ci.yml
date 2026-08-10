@@ -3,7 +3,13 @@ name: CI
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - "assets/readme/**"
   pull_request:
+    paths-ignore:
+      - "**/*.md"
+      - "assets/readme/**"
 
 permissions:
   contents: read
