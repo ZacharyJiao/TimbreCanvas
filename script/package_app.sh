@@ -39,6 +39,12 @@ fi
 mkdir -p "$APP_MACOS" "$APP_RESOURCES"
 cp "$BUILD_BINARY" "$APP_MACOS/$PROCESS_NAME"
 cp -R "$RESOURCE_BUNDLE" "$APP_RESOURCES/TimbreCanvas_TimbreCanvas.bundle"
+mkdir -p "$APP_RESOURCES/RuntimeHost"
+rsync -a \
+  --exclude '__pycache__' \
+  --exclude '*.pyc' \
+  "$ROOT_DIR/RuntimeHost/timbrecanvas_runtime/" \
+  "$APP_RESOURCES/RuntimeHost/timbrecanvas_runtime/"
 cp "$PACKAGE_DIR/Resources/Info.plist" "$APP_CONTENTS/Info.plist"
 cp "$PACKAGE_DIR/Resources/AppIcon.icns" "$APP_RESOURCES/AppIcon.icns"
 chmod +x "$APP_MACOS/$PROCESS_NAME"
